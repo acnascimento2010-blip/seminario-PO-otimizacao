@@ -132,26 +132,41 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     return 2 * math.asin(math.sqrt(math.sin((lat2-lat1)/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2-lon1)/2)**2)) * 6371
 
+# --- NOVA FUNÇÃO DE MAPA COM POPUPS ANIMADOS ---
 def renderizar_mapa(rota, df_selecionado):
-    df_rota_mapa = pd.DataFrame(columns=['Cidade', 'Latitude', 'Longitude'])
+    linhas = []
     for passo in rota:
-        df_rota_mapa = pd.concat([df_rota_mapa, pd.DataFrame([{
-            'Cidade': passo['Partida'], 'Latitude': df_selecionado.loc[passo['Partida'], 'Latitude'], 'Longitude': df_selecionado.loc[passo['Partida'], 'Longitude']
-        }])], ignore_index=True)
-    ultima_cidade = rota[-1]['Destino']
-    df_rota_mapa = pd.concat([df_rota_mapa, pd.DataFrame([{
-        'Cidade': ultima_cidade, 'Latitude': df_selecionado.loc[ultima_cidade, 'Latitude'], 'Longitude': df_selecionado.loc[ultima_cidade, 'Longitude']
-    }])], ignore_index=True)
-
-    fig = px.line_geo(
-        df_rota_mapa, lat="Latitude", lon="Longitude", hover_name="Cidade",
-        projection="orthographic", markers=True
+        origem = passo['Partida']
+        destino = passo['Destino']
+        linhas.append({
+            'Cidade': origem,
+            'Latitude': df_selecionado.loc[origem, 'Latitude'],
+            'Longitude': df_selecionado.loc[origem, 'Longitude'],
+            'PopupInfo': f"<b>📍 {origem}</b><br>➔ Destino: {destino}<br>🚚 Meio: {passo['Modal']}<br>💰 Preço: R$ {passo['Custo (R$)']:.2f}<br>⏱️ Tempo: {passo['Tempo (h)']}h"
+        })
+    # Fecha o laço adicionando o ponto de chegada final
+    f_dest = rota[-1]['Destino']
+    linhas.append({
+        'Cidade': f_dest, 'Latitude': df_selecionado.loc[f_dest, 'Latitude'], 'Longitude': df_selecionado.loc[f_dest, 'Longitude'],
+        'PopupInfo': f"<b>🏁 Fim do Circuito: {f_dest}</b>"
+    })
+    
+    df_mapa = pd.DataFrame(linhas)
+    fig = px.line_geo(df_mapa, lat="Latitude", lon="Longitude", projection="orthographic", markers=True)
+    
+    # Injeta a caixa de texto customizada e estiliza as linhas e pontos
+    fig.update_traces(
+        hovertemplate="%{customdata}<extra></extra>",
+        customdata=df_mapa['PopupInfo'],
+        line=dict(color="#CBA358", width=3),
+        marker=dict(color="#CBA358", size=9)
     )
+    
     fig.update_layout(
         geo=dict(showcoastlines=True, coastlinecolor="#555555", showland=True, landcolor="#1E1E1E", showocean=True, oceancolor="#121212", bgcolor="#121212"),
-        paper_bgcolor="#121212", margin=dict(l=0, r=0, t=0, b=0)
+        paper_bgcolor="#121212", margin=dict(l=0, r=0, t=0, b=0),
+        hoverlabel=dict(bgcolor="#1A1A1A", font_size=13, font_family="Arial", font_color="#E0E0E0", bordercolor="#CBA358")
     )
-    fig.update_traces(line=dict(color="#CBA358", width=3), marker=dict(color="#CBA358", size=8))
     return fig
 
 # =====================================================================
@@ -177,7 +192,6 @@ if st.session_state.etapa_atual == 1:
 elif st.session_state.etapa_atual == 2:
     st.title("Passo 1: Seleção de Destinos")
     st.markdown("---")
-    
     if 'cidades_selecionadas' not in st.session_state:
         st.session_state.cidades_selecionadas = ["Paris", "Londres", "Nova York", "Tóquio", "Xangai", "Chongqing", "Rio de Janeiro", "Dubai", "Sydney", "Cidade do Cabo"]
     
@@ -191,29 +205,15 @@ elif st.session_state.etapa_atual == 2:
     
     n_cidades = len(st.session_state.cidades_selecionadas)
     
-    # --- NOVO: MAPA INTERATIVO DE PRÉ-VISUALIZAÇÃO ---
     if n_cidades > 0:
         df_pontos = df_bd[df_bd['Cidade'].isin(st.session_state.cidades_selecionadas)]
-        fig_pontos = px.scatter_geo(
-            df_pontos, lat="Latitude", lon="Longitude", hover_name="Cidade",
-            projection="orthographic" # Mantém o formato de globo 3D
-        )
+        fig_pontos = px.scatter_geo(df_pontos, lat="Latitude", lon="Longitude", hover_name="Cidade", projection="orthographic")
         fig_pontos.update_layout(
-            geo=dict(
-                showcoastlines=True, coastlinecolor="#555555", 
-                showland=True, landcolor="#1E1E1E", 
-                showocean=True, oceancolor="#121212", 
-                bgcolor="#121212"
-            ),
-            paper_bgcolor="#121212", 
-            margin=dict(l=0, r=0, t=10, b=10),
-            height=350 # Tamanho reduzido para manter os botões visíveis na tela
+            geo=dict(showcoastlines=True, coastlinecolor="#555555", showland=True, landcolor="#1E1E1E", showocean=True, oceancolor="#121212", bgcolor="#121212"),
+            paper_bgcolor="#121212", margin=dict(l=0, r=0, t=10, b=10), height=350
         )
-        # Marcadores dourados combinando com o tema
         fig_pontos.update_traces(marker=dict(color="#CBA358", size=8, line=dict(color="#121212", width=1)))
-        
-        st.plotly_chart(fig_pontos, use_container_width=True)
-    # -------------------------------------------------
+        st.plotly_chart(fig_pontos, use_container_width=True, key="mapa_pre_visualizacao")
 
     if n_cidades < 10:
         st.warning(f"{n_cidades} cidades selecionadas. O requisito mínimo são 10 destinos.")
@@ -223,7 +223,6 @@ elif st.session_state.etapa_atual == 2:
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, _ = st.columns([1, 1, 4])
     col1.button("⬅ Voltar", on_click=etapa_anterior)
-    
     if n_cidades >= 10:
         col2.button("Otimizar Roteiro 🚀", on_click=proxima_etapa, type="primary")
 
@@ -294,7 +293,6 @@ elif st.session_state.etapa_atual == 3:
 
     if "Custo" in resultados and "Tempo" in resultados:
         st.success("✅ Roteiros calculados!")
-        
         tab1, tab2 = st.tabs(["💰 Foco em Economia", "⏱️ Foco em Rapidez"])
         
         with tab1:
@@ -308,8 +306,13 @@ elif st.session_state.etapa_atual == 3:
             col3.metric("Cidades", f"{n_cidades}")
             
             st.plotly_chart(renderizar_mapa(resultados['Custo']['rota'], df_selecionado), use_container_width=True, key="mapa_custo")
-            st.dataframe(pd.DataFrame(resultados['Custo']['rota']), use_container_width=True)
-            st.download_button("📥 Baixar Planilha (CSV)", data=pd.DataFrame(resultados['Custo']['rota']).to_csv(index=False).encode('utf-8'), file_name="rota_custo.csv", mime="text/csv", key="btn_dwn_custo")
+            
+            # --- TABELA PURIFICADA E SIMPLIFICADA PARA CUSTO ---
+            df_custo_vis = pd.DataFrame(resultados['Custo']['rota']).rename(columns={
+                "Ordem": "Etapa", "Partida": "Origem", "Modal": "Transporte", "Custo (R$)": "Preço (R$)", "Tempo (h)": "Duração"
+            })
+            st.dataframe(df_custo_vis, use_container_width=True, hide_index=True)
+            st.download_button("📥 Baixar Planilha (CSV)", data=df_custo_vis.to_csv(index=False).encode('utf-8'), file_name="rota_custo.csv", mime="text/csv", key="btn_dwn_custo")
 
         with tab2:
             st.markdown("### Cenário Ágil (Menor Tempo)")
@@ -322,8 +325,13 @@ elif st.session_state.etapa_atual == 3:
             col3.metric("Cidades", f"{n_cidades}")
             
             st.plotly_chart(renderizar_mapa(resultados['Tempo']['rota'], df_selecionado), use_container_width=True, key="mapa_tempo")
-            st.dataframe(pd.DataFrame(resultados['Tempo']['rota']), use_container_width=True)
-            st.download_button("📥 Baixar Planilha (CSV)", data=pd.DataFrame(resultados['Tempo']['rota']).to_csv(index=False).encode('utf-8'), file_name="rota_tempo.csv", mime="text/csv", key="btn_dwn_tempo")
+            
+            # --- TABELA PURIFICADA E SIMPLIFICADA PARA TEMPO ---
+            df_tempo_vis = pd.DataFrame(resultados['Tempo']['rota']).rename(columns={
+                "Ordem": "Etapa", "Partida": "Origem", "Modal": "Transporte", "Custo (R$)": "Preço (R$)", "Tempo (h)": "Duração"
+            })
+            st.dataframe(df_tempo_vis, use_container_width=True, hide_index=True)
+            st.download_button("📥 Baixar Planilha (CSV)", data=df_tempo_vis.to_csv(index=False).encode('utf-8'), file_name="rota_tempo.csv", mime="text/csv", key="btn_dwn_tempo")
             
     else:
         st.error("Erro ao encontrar uma solução matemática ótima.")
