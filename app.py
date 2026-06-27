@@ -307,7 +307,7 @@ elif st.session_state.etapa_atual == 3:
             col2.metric("Tempo Total", f"{resultados['Custo']['tempo']} h", f"{dif_tempo:.1f} h vs Rapidez", delta_color="inverse")
             col3.metric("Cidades", f"{n_cidades}")
             
-            st.plotly_chart(renderizar_mapa(resultados['Custo']['rota'], df_selecionado), use_container_width=True)
+            st.plotly_chart(renderizar_mapa(resultados['Custo']['rota'], df_selecionado), use_container_width=True, key="mapa_custo")
             st.dataframe(pd.DataFrame(resultados['Custo']['rota']), use_container_width=True)
             st.download_button("📥 Baixar Planilha (CSV)", data=pd.DataFrame(resultados['Custo']['rota']).to_csv(index=False).encode('utf-8'), file_name="rota_custo.csv", mime="text/csv", key="btn_dwn_custo")
 
@@ -321,7 +321,7 @@ elif st.session_state.etapa_atual == 3:
             col2.metric("Tempo Total", f"{resultados['Tempo']['tempo']} h", f"{dif_tempo_t:.1f} h vs Economia", delta_color="inverse")
             col3.metric("Cidades", f"{n_cidades}")
             
-            st.plotly_chart(renderizar_mapa(resultados['Tempo']['rota'], df_selecionado), use_container_width=True)
+            st.plotly_chart(renderizar_mapa(resultados['Tempo']['rota'], df_selecionado), use_container_width=True, key="mapa_tempo")
             st.dataframe(pd.DataFrame(resultados['Tempo']['rota']), use_container_width=True)
             st.download_button("📥 Baixar Planilha (CSV)", data=pd.DataFrame(resultados['Tempo']['rota']).to_csv(index=False).encode('utf-8'), file_name="rota_tempo.csv", mime="text/csv", key="btn_dwn_tempo")
             
