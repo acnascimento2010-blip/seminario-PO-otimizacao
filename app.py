@@ -61,7 +61,7 @@ estilo_css = f"""
 st.markdown(estilo_css, unsafe_allow_html=True)
 
 # =====================================================================
-# BANCO DE DADOS (100 CIDADES)
+# BANCO DE DADOS E FUNÇÕES GEOGRÁFICAS
 # =====================================================================
 arquivo_bd = 'banco_coordenadas.csv'
 
@@ -119,11 +119,10 @@ if not os.path.exists(arquivo_bd):
         ("Brisbane", -27.4705, 153.0260, "Oceania"), ("Auckland", -36.8485, 174.7633, "Oceania"),
         ("Queenstown", -45.0312, 168.6626, "Oceania"), ("Fiji", -17.7134, 178.0650, "Oceania")
     ]
-    dados_iniciais = {
+    pd.DataFrame({
         "Cidade": [d[0] for d in dados_100], "Latitude": [d[1] for d in dados_100],
         "Longitude": [d[2] for d in dados_100], "Continente": [d[3] for d in dados_100]
-    }
-    pd.DataFrame(dados_iniciais).to_csv(arquivo_bd, index=False, encoding='latin-1')
+    }).to_csv(arquivo_bd, index=False, encoding='latin-1')
 
 df_bd = pd.read_csv(arquivo_bd, encoding='latin-1')
 lista_todas_cidades = sorted(df_bd['Cidade'].tolist())
@@ -132,19 +131,35 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     return 2 * math.asin(math.sqrt(math.sin((lat2-lat1)/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2-lon1)/2)**2)) * 6371
 
-# --- NOVA FUNÇÃO DE MAPA COM POPUPS ANIMADOS ---
+# --- NOVA REGRA: BARREIRAS GEOGRÁFICAS PARA TRENS ---
+def pode_usar_trem(cidade1, cidade2, cont1, cont2):
+    if cont1 != cont2:
+        return False
+    
+    # Locais que não possuem conexão ferroviária com o resto do continente
+    ilhas = [
+        {"Tóquio", "Quioto", "Osaka"}, # Japão não conecta com a China continental
+        {"Auckland", "Queenstown"},    # Nova Zelândia
+        {"Fiji"},
+        {"Bali"},
+        {"Reykjavik"},                 # Islândia
+        {"Havana"},                    # Cuba
+        {"Dublin"}                     # Irlanda
+    ]
+    
+    for grupo in ilhas:
+        if (cidade1 in grupo) != (cidade2 in grupo):
+            return False # Impede trem caso uma cidade seja ilha e a outra não
+    return True
+
 def renderizar_mapa(rota, df_selecionado):
     linhas = []
     for passo in rota:
-        origem = passo['Partida']
-        destino = passo['Destino']
+        origem, destino = passo['Partida'], passo['Destino']
         linhas.append({
-            'Cidade': origem,
-            'Latitude': df_selecionado.loc[origem, 'Latitude'],
-            'Longitude': df_selecionado.loc[origem, 'Longitude'],
+            'Cidade': origem, 'Latitude': df_selecionado.loc[origem, 'Latitude'], 'Longitude': df_selecionado.loc[origem, 'Longitude'],
             'PopupInfo': f"<b>📍 {origem}</b><br>➔ Destino: {destino}<br>🚚 Meio: {passo['Modal']}<br>💰 Preço: R$ {passo['Custo (R$)']:.2f}<br>⏱️ Tempo: {passo['Tempo (h)']}h"
         })
-    # Fecha o laço adicionando o ponto de chegada final
     f_dest = rota[-1]['Destino']
     linhas.append({
         'Cidade': f_dest, 'Latitude': df_selecionado.loc[f_dest, 'Latitude'], 'Longitude': df_selecionado.loc[f_dest, 'Longitude'],
@@ -153,15 +168,10 @@ def renderizar_mapa(rota, df_selecionado):
     
     df_mapa = pd.DataFrame(linhas)
     fig = px.line_geo(df_mapa, lat="Latitude", lon="Longitude", projection="orthographic", markers=True)
-    
-    # Injeta a caixa de texto customizada e estiliza as linhas e pontos
     fig.update_traces(
-        hovertemplate="%{customdata}<extra></extra>",
-        customdata=df_mapa['PopupInfo'],
-        line=dict(color="#CBA358", width=3),
-        marker=dict(color="#CBA358", size=9)
+        hovertemplate="%{customdata}<extra></extra>", customdata=df_mapa['PopupInfo'],
+        line=dict(color="#CBA358", width=3), marker=dict(color="#CBA358", size=9)
     )
-    
     fig.update_layout(
         geo=dict(showcoastlines=True, coastlinecolor="#555555", showland=True, landcolor="#1E1E1E", showocean=True, oceancolor="#121212", bgcolor="#121212"),
         paper_bgcolor="#121212", margin=dict(l=0, r=0, t=0, b=0),
@@ -197,9 +207,7 @@ elif st.session_state.etapa_atual == 2:
     
     st.session_state.cidades_selecionadas = st.multiselect(
         "Escolha entre 10 e 15 cidades para o roteiro:", 
-        options=lista_todas_cidades, 
-        default=st.session_state.cidades_selecionadas, 
-        max_selections=15,
+        options=lista_todas_cidades, default=st.session_state.cidades_selecionadas, max_selections=15,
         help="O limite de 15 cidades evita o tempo de processamento exponencial característico de problemas NP-Difíceis."
     )
     
@@ -250,7 +258,12 @@ elif st.session_state.etapa_atual == 3:
                     cont_destino = df_selecionado.loc[destino, 'Continente']
                     
                     ca[i][j], ta[i][j] = (999999, 999999) if dist < 200 else (200 + (dist * 0.8), (dist / 800) + 3)
-                    ct[i][j], tt[i][j] = (999999, 999999) if cont_origem != cont_destino else (50 + (dist * 0.4), (dist / 250) + 1)
+                    
+                    # Usa a função inteligente de barreira geográfica para o trem
+                    if pode_usar_trem(origem, destino, cont_origem, cont_destino):
+                        ct[i][j], tt[i][j] = 50 + (dist * 0.4), (dist / 250) + 1
+                    else:
+                        ct[i][j], tt[i][j] = 999999, 999999
                         
         custos, tempos = [ca.tolist(), ct.tolist()], [ta.tolist(), tt.tolist()]
         modais, n_modais = ["✈️ Avião", "🚆 Trem"], 2
@@ -295,6 +308,7 @@ elif st.session_state.etapa_atual == 3:
                             break
                             
                 resultados[cenario] = {"custo": round(custo_total, 2), "tempo": round(tempo_total, 1), "rota": rota}
+
     if "Custo" in resultados and "Tempo" in resultados:
         st.success("✅ Roteiros calculados!")
         tab1, tab2 = st.tabs(["💰 Foco em Economia", "⏱️ Foco em Rapidez"])
@@ -310,11 +324,7 @@ elif st.session_state.etapa_atual == 3:
             col3.metric("Cidades", f"{n_cidades}")
             
             st.plotly_chart(renderizar_mapa(resultados['Custo']['rota'], df_selecionado), use_container_width=True, key="mapa_custo")
-            
-            # --- TABELA PURIFICADA E SIMPLIFICADA PARA CUSTO ---
-            df_custo_vis = pd.DataFrame(resultados['Custo']['rota']).rename(columns={
-                "Ordem": "Etapa", "Partida": "Origem", "Modal": "Transporte", "Custo (R$)": "Preço (R$)", "Tempo (h)": "Duração"
-            })
+            df_custo_vis = pd.DataFrame(resultados['Custo']['rota']).rename(columns={"Ordem": "Etapa", "Partida": "Origem", "Modal": "Transporte", "Custo (R$)": "Preço (R$)", "Tempo (h)": "Duração"})
             st.dataframe(df_custo_vis, use_container_width=True, hide_index=True)
             st.download_button("📥 Baixar Planilha (CSV)", data=df_custo_vis.to_csv(index=False).encode('utf-8'), file_name="rota_custo.csv", mime="text/csv", key="btn_dwn_custo")
 
@@ -329,11 +339,7 @@ elif st.session_state.etapa_atual == 3:
             col3.metric("Cidades", f"{n_cidades}")
             
             st.plotly_chart(renderizar_mapa(resultados['Tempo']['rota'], df_selecionado), use_container_width=True, key="mapa_tempo")
-            
-            # --- TABELA PURIFICADA E SIMPLIFICADA PARA TEMPO ---
-            df_tempo_vis = pd.DataFrame(resultados['Tempo']['rota']).rename(columns={
-                "Ordem": "Etapa", "Partida": "Origem", "Modal": "Transporte", "Custo (R$)": "Preço (R$)", "Tempo (h)": "Duração"
-            })
+            df_tempo_vis = pd.DataFrame(resultados['Tempo']['rota']).rename(columns={"Ordem": "Etapa", "Partida": "Origem", "Modal": "Transporte", "Custo (R$)": "Preço (R$)", "Tempo (h)": "Duração"})
             st.dataframe(df_tempo_vis, use_container_width=True, hide_index=True)
             st.download_button("📥 Baixar Planilha (CSV)", data=df_tempo_vis.to_csv(index=False).encode('utf-8'), file_name="rota_tempo.csv", mime="text/csv", key="btn_dwn_tempo")
             
