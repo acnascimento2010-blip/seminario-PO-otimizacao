@@ -165,7 +165,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
 # SLIDE 1: APRESENTAÇÃO DO PROBLEMA
 # =====================================================================
 if st.session_state.etapa_atual == 1:
-    st.title("Otimizador Logístico: Caixeiro Viajante Multimodal")
+    st.title("Caixeiro Viajante Multimodal")
     st.markdown("Trabalho desenvolvido para o Seminário da Disciplina de Pesquisa Operacional.")
     st.markdown("---")
     col1, col2 = st.columns(2)
@@ -214,9 +214,9 @@ elif st.session_state.etapa_atual == 3:
     
     n_cidades = len(st.session_state.cidades_selecionadas)
     if n_cidades < 10:
-        st.warning(f"Você selecionou {n_cidades} nós. O barema exige um mínimo de 10 localidades.")
+        st.warning(f"Você selecionou {n_cidades} nós. O problema exige um mínimo de 10 localidades.")
     else:
-        st.success(f"Excelente! {n_cidades} nós identificados e prontos para o motor matemático.")
+        st.success(f"Excelente! {n_cidades} nós identificados.")
     
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, _ = st.columns([1, 1, 4])
@@ -282,7 +282,7 @@ elif st.session_state.etapa_atual == 4:
                         if pulp.value(x[cidade_atual, j, k]) is not None and pulp.value(x[cidade_atual, j, k]) > 0.5: 
                             rota.append({
                                 "Ordem": passo + 1, "Partida": cidades[cidade_atual], "Destino": cidades[j],
-                                "Modal Escolhido": modais[k], "Custo (¥)": round(custos[k][cidade_atual][j], 2), "Tempo (h)": round(tempos[k][cidade_atual][j], 1)
+                                "Modal Escolhido": modais[k], "Custo R$)": round(custos[k][cidade_atual][j], 2), "Tempo (h)": round(tempos[k][cidade_atual][j], 1)
                             })
                             custo_total += custos[k][cidade_atual][j]
                             tempo_total += tempos[k][cidade_atual][j]
@@ -293,7 +293,7 @@ elif st.session_state.etapa_atual == 4:
         
         st.markdown("### 📊 Indicadores Principais")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Custo Total Estimado", f"¥ {round(custo_total, 2)}")
+        col1.metric("Custo Total Estimado", f"R$ {round(custo_total, 2)}")
         col2.metric("Tempo Total em Trânsito", f"{round(tempo_total, 1)} horas")
         col3.metric("Nós Visitados", f"{n_cidades} Cidades")
         
