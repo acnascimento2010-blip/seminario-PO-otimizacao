@@ -255,7 +255,7 @@ elif st.session_state.etapa_atual == 3:
         custos, tempos = [ca.tolist(), ct.tolist()], [ta.tolist(), tt.tolist()]
         modais, n_modais = ["✈️ Avião", "🚆 Trem"], 2
         
-        resultados = {}
+       resultados = {}
         for cenario in ["Custo", "Tempo"]:
             prob = pulp.LpProblem(f"TSP_{cenario}", pulp.LpMinimize)
             x = pulp.LpVariable.dicts(f"x_{cenario}", ((i, j, k) for i in range(n_cidades) for j in range(n_cidades) for k in range(n_modais) if i != j), cat='Binary')
@@ -274,10 +274,10 @@ elif st.session_state.etapa_atual == 3:
                         
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
-           if pulp.LpStatus[prob.status] == 'Optimal':
+            if pulp.LpStatus[prob.status] == 'Optimal':
                 rota, cidade_atual, custo_total, tempo_total = [], 0, 0, 0
                 for passo in range(n_cidades):
-                    proxima_cidade_encontrada = False # Trava de segurança ativada
+                    proxima_cidade_encontrada = False
                     for j in range(n_cidades):
                         if cidade_atual != j:
                             for k in range(n_modais):
@@ -289,10 +289,10 @@ elif st.session_state.etapa_atual == 3:
                                     custo_total += custos[k][cidade_atual][j]
                                     tempo_total += tempos[k][cidade_atual][j]
                                     cidade_atual = j
-                                    proxima_cidade_encontrada = True # Avisa que achou o destino
+                                    proxima_cidade_encontrada = True
                                     break
                         if proxima_cidade_encontrada:
-                            break # Para a busca e vai para a próxima etapa da viagem
+                            break
                             
                 resultados[cenario] = {"custo": round(custo_total, 2), "tempo": round(tempo_total, 1), "rota": rota}
     if "Custo" in resultados and "Tempo" in resultados:
