@@ -274,9 +274,10 @@ elif st.session_state.etapa_atual == 3:
                         
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
-            if pulp.LpStatus[prob.status] == 'Optimal':
+           if pulp.LpStatus[prob.status] == 'Optimal':
                 rota, cidade_atual, custo_total, tempo_total = [], 0, 0, 0
                 for passo in range(n_cidades):
+                    proxima_cidade_encontrada = False # Trava de segurança ativada
                     for j in range(n_cidades):
                         if cidade_atual != j:
                             for k in range(n_modais):
@@ -288,9 +289,12 @@ elif st.session_state.etapa_atual == 3:
                                     custo_total += custos[k][cidade_atual][j]
                                     tempo_total += tempos[k][cidade_atual][j]
                                     cidade_atual = j
+                                    proxima_cidade_encontrada = True # Avisa que achou o destino
                                     break
+                        if proxima_cidade_encontrada:
+                            break # Para a busca e vai para a próxima etapa da viagem
+                            
                 resultados[cenario] = {"custo": round(custo_total, 2), "tempo": round(tempo_total, 1), "rota": rota}
-
     if "Custo" in resultados and "Tempo" in resultados:
         st.success("✅ Roteiros calculados!")
         tab1, tab2 = st.tabs(["💰 Foco em Economia", "⏱️ Foco em Rapidez"])
