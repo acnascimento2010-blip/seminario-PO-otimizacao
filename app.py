@@ -255,7 +255,7 @@ elif st.session_state.etapa_atual == 3:
         custos, tempos = [ca.tolist(), ct.tolist()], [ta.tolist(), tt.tolist()]
         modais, n_modais = ["✈️ Avião", "🚆 Trem"], 2
         
-       resultados = {}
+        resultados = {}
         for cenario in ["Custo", "Tempo"]:
             prob = pulp.LpProblem(f"TSP_{cenario}", pulp.LpMinimize)
             x = pulp.LpVariable.dicts(f"x_{cenario}", ((i, j, k) for i in range(n_cidades) for j in range(n_cidades) for k in range(n_modais) if i != j), cat='Binary')
