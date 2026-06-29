@@ -2,6 +2,8 @@ Trabalho desenvolvido para o Seminario de PO da Academia Militar das Agulhas Neg
 
 O app pode ser aberto no streamlit ou outro software de preferência
 
+https://seminario-po-caixeiro.streamlit.app/
+
 Grupo das turmas A5 e A6:
 - André Cardozo do Nascimento - A5
 - Piter Antônio da Silva - A5
